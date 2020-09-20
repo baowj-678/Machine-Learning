@@ -52,5 +52,81 @@ $Z(x)$：是**规范化因子**；
 
 
 
+#### 线性条件随机场的简化矩阵形式：
+
+**令**:
+
+$y_0=start,y_{n+1}=stop$
+
+$y_{1\to n}\in\{y^*_1,y^*_2,\cdots,y^*_m\}$
+
+**有**：
+
+$$W_i(y_{i-1},y_i|x)=\sum_{k}\lambda_kt_k(y_{i-1},y_i,x,i)+\sum_{l}\mu_ls_l(y_i,x,i)$$
+
+$$M_i(y_{i-1},y_i|x)=\exp(W_i(y_{i-1},y_i|x))$$
+
+$$M_i(x)=\begin{pmatrix} M_i(y^*_1,y^*_1|x) & M_i(y^*_1,y^*_2,|x) & \cdots & M_i(y^*_1,y^*_m|x) \\ M_i(y^*_2,y^*_1|x) & M_i(y^*_2,y^*_2,|x) & \cdots & M_i(y^*_2,y^*_m|x) \\ \vdots & \vdots & \ddots & \vdots \\ M_i(y^*_m,y^*_1|x) & M_i(y^*_m,y^*_2|x) & \cdots & M_i(y^*_m,y^*_m|x) \end{pmatrix}$$
+
+**所以**：
+
+$$P_w(y|x)=\frac{1}{Z_w(x)}\prod_{i=1}^{n+1}M_i(y_{i-1},y_i|x)$$
+
+$$Z_w(x) = [M_1(x)M_2(x)\cdots M_{n+1}(x)]_{start,stop}$$
+
+
+
+### 条件随机场的计算：
+
+#### 前向-后向算法:
+
+**前向向量**：
+
+$$\alpha_i(y_i|x)$$：表示在位置$i$的标记是$y_i$ 并且从$1$到$i$的**前部分标记序列**的**非规范化概率**
+
+$$\alpha_i(x)=\begin{pmatrix} \alpha_i(y_i=y^*_1|x) \\ \alpha_i(y_i=y^*_2|x) \\ \vdots \\ \alpha_i(y_i=y^*_m|x)\end{pmatrix}$$
+
+**递推公式**：
+
+$$\alpha_i^T(y_i|x)=\alpha_{i-1}^T(y_{i-1}|x)M_i(x)$$
+
+$$\alpha_0(y|x)=\begin{cases} 1,\quad y=start \\ 0,\quad otherwise \end{cases}$$
+
+****
+
+**后向向量**：
+
+$$\beta_i(y_i|x)$$：表示在位置$i$的标记是$y_i$ 并且从$i+1$到$n$的**前部分标记序列**的**非规范化概率**
+
+$$\beta_i(x)=\begin{pmatrix} \beta_i(y_i=y^*_1|x) \\ \beta_i(y_i=y^*_2|x) \\ \vdots \\ \beta_i(y_i=y^*_m|x)\end{pmatrix}$$
+
+**递推公式**：
+
+$$\beta_i(y_i|x)=M_{i+1}(x)\beta_{i+1}(y_{i-1}|x)$$
+
+$$\alpha_0(y|x)=\begin{cases} 1,\quad y=start \\ 0,\quad otherwise \end{cases}$$
+
+
+
+#### 概率计算：
+
+标记序列在位置$i$是$y_i$的**条件概率**为：
+
+$$P(Y_i=y_i|x)=\frac{1}{Z(x)}\prod_{Y_0Y_1\cdots Y_{i-1}(Y_i=y_i)Y_{i+1}\cdots Y_{n+1}} M_i(x)$$
+
+$$=\frac{\alpha_i^T(Y_i=y_i|x)\beta_i(Y_i=y_i|x)}{Z(x)}$$
+
+***
+
+标记序列在位置$i-1$、$i$是$y_{i-1}$、$y_i$的**条件概率**为：
+
+$$P(Y_{i-1}=y_{i-1},Y_i=y_i|x)=\frac{1}{Z(x)}\prod_{Y_0Y_1\cdots (Y_{i-1}=y_{i-1})(Y_i=y_i)\cdots Y_{n+1}}M_i(x)$$
+
+$$=\frac{\alpha_{i-1}^T(y_{i-1}|x)M_i(y_{i-1},y_i|x)\beta_i(y_i|x)}{Z(x)}$$
+
+
+
+#### 期望计算：
+
 
 
