@@ -1,5 +1,7 @@
 import numpy as np
 from math import log
+from sklearn.datasets import load_iris
+from sklearn.datasets import load_breast_cancer
 
 #计算Entropy
 def clacEntropy(dataSets):
@@ -156,5 +158,6 @@ def main():
     #             ['长', '粗', '女']])
     # labels = np.array(['头发','声音'])  #两个特征
     print(createTree(dataSets, labels,'GainRatio'))
- 
-main()
+
+if __name__ == "__main__":
+    print(load_breast_cancer())
