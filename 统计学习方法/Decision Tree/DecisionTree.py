@@ -18,14 +18,19 @@ class DecisionTree():
         self.classification = 'classification'
         self.regression = 'regression'
 
+        # 决策树
+        self.Tree = None
+        # 预测目标集合
         self.targets = None
+        # 算法类型ID3\C45\CART
         self.algorithm = algorithm
+        # 模型类型 classification\regression
         self.mode = mode
         if self.mode == self.classification:
             self.targets = set()
         else:
             self.mode = self.regression
-    
+
     def load(self, path):
         pass
 
@@ -37,7 +42,61 @@ class DecisionTree():
         if self.mode == self.classification:
             for y in X[:, -1]:
                 self.targets.add(y)
-        
+        if self.algorithm == self.classification:
+            self.Tree = self.generateTreeClassifier(X)
+        elif self.algorithm == self.regression:
+            self.Tree = self.generateTreeRegressier(X)
+        else:
+            raise Exception("模型任务不符合,必须是 'classification' or 'regression' ")
+        return self.Tree
+
+    def generateTreeClassifier(self, X):
+        """ 递归生成分类决策树
+        :param X: 数据
+        :return: {}字典
+        """
+        subTree = {}
+        if self.algorithm == self.ID3:
+            # ID3算法(信息增益)
+            return self.generateTreeID3(X)
+        elif self.algorithm == self.C45:
+            # C45算法(信息增益率)
+            pass
+        elif self.algorithm == self.CART:
+            # CART算法(基尼系数)
+            pass
+        else:
+            raise Exception("模型算法不符合,必须是 'ID3' or 'C45' or 'CART'")
+
+    def generateTreeID3(self, X):
+        """ ID3算法
+        :param X: 数据
+        :return: {}字典树
+        """
+        subTree = {}
+        dim = X.shape[1] - 1
+        # 计算信息增益
+        t, entropyGain = self.computeGain(X)
+        if t is None:
+            # 离散形
+            index = np.argmax(entropyGain)
+            items = set()
+            # 变量取值集合
+            for item in X[:, index]:
+                items.add(item)
+            for item in items:
+                subTree[item] = self.generateTreeID3(X[X[:, index] == item, :])
+        else:
+            # 连续性
+            index = np.argmax(entropyGain)
+
+        return subTree
+
+    def generateTreeRegressier(self, X):
+        """ 递归生成回归决策树
+        :param X: 数据
+        :return: {}字典
+        """
         pass
 
     def computeEntropy(self, X):
@@ -55,11 +114,11 @@ class DecisionTree():
         sum_ = X.shape[0]
         # 计算熵
         entropy = 0
-        sum__ = 0 # 待删除
+        sum__ = 0  # 待删除
         for value in C_k.values():
             sum__ += value
             value = value / sum_
-            entropy -= value* math.log(value)
+            entropy -= value * math.log(value)
         assert sum__ == sum_
         return entropy
 
@@ -86,15 +145,26 @@ class DecisionTree():
                     X_ = X[X[:, i] == value, :]
                     p = X_.shape[0] / n
                     entropy_ = self.computeEntropy(X_)
-                    entropyGain[i] += entropy_* p
+                    entropyGain[i] += entropy_ * p
                 entropyGain[i] -= entropy0
-        return entropyGain
+        return (1, entropyGain)
 
     def computeGainRatio(self, X):
         """ 计算增益率
         @X numpy(n, dim)
         """
-        pass
+        dim = X.shape[1] - 1
+        n = X.shape[0]
+        # (1, dim)
+        entropyGains = self.computeEntropy(X)
+        # (1, dim)
+        entropyGains_ = np.zeros(dim)
+        for i in range(dim):
+            entropyGains_[i] = self.computeEntropy(X[:, i])
+
+        # 计算GainRatio
+        entropyGainsRatio = entropyGains / entropyGains_
+        return entropyGainsRatio
 
     def computeGini(self, X):
         """ 计算基尼系数
