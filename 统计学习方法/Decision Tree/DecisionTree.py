@@ -5,6 +5,7 @@
 """
 import numpy as np
 import math
+import copy
 
 
 class DecisionTree():
@@ -149,7 +150,6 @@ class DecisionTree():
         :return (dict): 字典树
         """
         subTree = {}
-        dim = X.shape[1] - 1
         # 计算信息增益
         entropyGain, splitPoints = self.gainLoss(X)
         index = np.argmax(entropyGain)
@@ -196,7 +196,7 @@ class DecisionTree():
         return entropy
 
     def computeGain(self, X):
-        """ 计算信息\基尼\Loss增益
+        """ 计算信息 基尼 Loss增益
         :param X numpy(n, dim): 待计算的数据
         :return entropyGain numpy(dim): 每一维的信息增益
         :return splitPoints numpy(dim): 切分点
@@ -328,6 +328,60 @@ class DecisionTree():
         aver = np.average(x)
         gini = np.sum(x - aver)^2
         return gini
+
+    def pruning(self, X, alpha=0.3):
+        """ 
+        :param X numpy()
+        """
+        self.alpha = alpha
+        # deep copy
+        copy_tree = copy.deepcopy(self.Tree)
+        self.prunedTree = self._pruningRecur(X, copy_tree)
+        return self.prunedTree
+
+    def _pruningRecur(self, X, root):
+        """
+        :param X numpy(n, dim): 
+        """
+        # not leaf node
+        if isinstance(root, dict):
+            loss_old = 0
+            T = 0
+            # go through root's sons
+            for item in root.items():
+                key = item[0]
+                subRoot = item[1]
+                if len(key) == 2:
+                    # 离散形
+                    # subdata
+                    sub_X = X[X[:, key[0]] == key[1]]
+                    loss, t, sub_root= self._pruningRecur(sub_X, subRoot)
+                    root[key] = sub_root
+                    loss_old += loss
+                    T += t
+                elif len(key) == 3:
+                    # 连续形
+                    if key[1] == 1:
+                        # subdata
+                        sub_X = X[X[:, key[0]] <= key[1]]
+                        loss, t, sub_root= self._pruningRecur(sub_X, subRoot)
+                    elif key[1] == -1:
+                        sub_X = X[X[:, key[0]] > key[1]]
+                        loss, t, sub_root= self._pruningRecur(sub_X, subRoot)
+                    root[key] = sub_root
+                    loss_old += loss
+                    T += t
+            loss_new = self.getLoss(X) + self.alpha
+            if loss_new < loss_old:
+                leaf_label = self.getLeaf(X)
+                return (loss_new, T, leaf_label)
+            else:
+                return (loss_old, T, root)
+            pass
+        # leaf node
+        else:
+            c_loss = self.getLoss(X)
+            return (c_loss, 1, root)
 
     def predict(self, X):
         """ 预测
