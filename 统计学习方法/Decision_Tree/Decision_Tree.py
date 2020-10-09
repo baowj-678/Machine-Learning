@@ -143,7 +143,6 @@ class DecisionTree():
         return self.Tree
 
 
-
     def generateTree(self, X): 
         """ 递归地生成决策树
         :param X numpy(n, dim): 训练数据
