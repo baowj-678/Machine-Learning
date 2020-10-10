@@ -7,9 +7,14 @@ import numpy as np
 import math
 import copy
 
+# 标记离散形
+Discrete = 2
+# 标记连续形
+Continuity = 1
+
 
 class DecisionTree():
-    def __init__(self, algorithm='ID3', mode='classification'):
+    def __init__(self, algorithm='ID3', mode='classification', RF=False):
         super().__init__()
         """ 决策树初始化
         """
@@ -21,7 +26,7 @@ class DecisionTree():
 
         # 获得叶节点值函数
         self.getLeaf = None
-        # “信息”增量计算函数
+        # "信息"增量计算函数
         self.gainLoss = None
         # 计算"损失"值
         self.getLoss = None
@@ -33,6 +38,10 @@ class DecisionTree():
         self.algorithm = algorithm
         # 模型类型 classification\regression
         self.mode = mode
+        # 是否是随机森林中的一棵树
+        self.isRF = RF
+        self.RF_k = None #随机森林的随机属性子集属性个数
+
         if self.mode == self.classification:
             self.targets = set()
 
@@ -100,7 +109,7 @@ class DecisionTree():
         else:
             return data[1:]
 
-    def train(self, X, lb=0):
+    def train(self, X, lb=0, RF_k = None):
         """ 训练
         :param X numpy(n, dim): 待训练数据
         :param lb (float): 收敛条件
@@ -111,7 +120,14 @@ class DecisionTree():
         if self.mode == self.classification:
             for y in X[:, -1]:
                 self.targets.add(y)
-        
+        # 非随机森林-> 打印训练信息
+        if not self.isRF:
+            print('='*8 + '开始训练' + '='*8)
+        else:
+            if RF_k is None:
+                self.RF_k = math.log2(X.shape[1])
+            else:
+                self.RF_k = RF_k
         # 模型分类
         if self.mode == self.classification:
             # 分类树
@@ -140,7 +156,11 @@ class DecisionTree():
             raise Exception("模型算法不符合,必须是 'ID3'  'C4.5' or 'CART'")
 
         self.Tree = self.generateTree(X)
+        # 非随机森林-> 打印训练信息
+        if not self.isRF:
+            print('='*8 + '训练结束' + '='*8)
         return self.Tree
+
 
 
     def generateTree(self, X): 
@@ -149,9 +169,20 @@ class DecisionTree():
         :return (dict): 字典树
         """
         subTree = {}
+        dim = X.shape[1]
         # 计算信息增益
-        entropyGain, splitPoints = self.gainLoss(X)
-        index = np.argmax(entropyGain)
+        if self.isRF:
+            indexs = np.random.choice(a=dim - 1, size=self.RF_k, replace=False)
+            X_ = X[:, indexs.append(dim - 1)]
+            entropyGain_, splitPoints_ = self.gainLoss(X_)
+            entropyGain = np.zeros(dim - 1)* -1
+            splitPoints = np.zeros(dim - 1)
+            entropyGain[index] = entropyGain_
+            splitPoints[index] = entropyGain_
+            index = np.argmax(entropyGain)
+        else:
+            entropyGain, splitPoints = self.gainLoss(X)
+            index = np.argmax(entropyGain)
         # 收敛条件1
         if entropyGain[index] <= self.lb:
             leaf_label = self.getLeaf(X)
@@ -161,6 +192,7 @@ class DecisionTree():
             X_left = X[X[:, index] <= splitPoints[index]]
             X_right = X[X[:, index] > splitPoints[index]]
             # 生成子树
+            # (属性维度, 小于等于/大于, 切分点值)
             subTree[(index, -1, splitPoints[index])] = self.generateTree(X_left)
             subTree[(index, 1, splitPoints[index])] = self.generateTree(X_right)
         else:
@@ -333,26 +365,35 @@ class DecisionTree():
         :param X numpy()
         """
         self.alpha = alpha
-        # deep copy
+        # 将原树深拷贝
         copy_tree = copy.deepcopy(self.Tree)
-        self.prunedTree = self._pruningRecur(X, copy_tree)
+        print('='*8 + '开始剪枝' + '='*8)
+        loss, T, root = self._pruningRecur(X, copy_tree)
+        print('CART剪枝参数为{}, 损失为{}, 剪枝后共有{}个叶结点'.format(alpha, loss, T))
+        print('='*8 + '剪枝结束' + '='*8)
+        self.prunedTree = root
         return self.prunedTree
 
     def _pruningRecur(self, X, root):
         """
-        :param X numpy(n, dim): 
+        :param X numpy(n, dim):
+        :return loss: 子树的损失
+        :return T: 子树的叶结点个数
+        :return root: 子树的结点
         """
-        # not leaf node
+        # 非叶子结点
         if isinstance(root, dict):
+            # 该树的原损失
             loss_old = 0
+            # 该树的叶结点个数
             T = 0
-            # go through root's sons
+            # 遍历子结点
             for item in root.items():
                 key = item[0]
                 subRoot = item[1]
                 if len(key) == 2:
                     # 离散形
-                    # subdata
+                    # 子树的数据
                     sub_X = X[X[:, key[0]] == key[1]]
                     loss, t, sub_root= self._pruningRecur(sub_X, subRoot)
                     root[key] = sub_root
@@ -362,22 +403,26 @@ class DecisionTree():
                     # 连续形
                     if key[1] == 1:
                         # subdata
-                        sub_X = X[X[:, key[0]] <= key[1]]
+                        sub_X = X[X[:, key[0]] > key[2]]
                         loss, t, sub_root= self._pruningRecur(sub_X, subRoot)
                     elif key[1] == -1:
-                        sub_X = X[X[:, key[0]] > key[1]]
+                        sub_X = X[X[:, key[0]] <= key[2]]
                         loss, t, sub_root= self._pruningRecur(sub_X, subRoot)
                     root[key] = sub_root
                     loss_old += loss
                     T += t
+            # 如果以该结点为叶节点的损失值
             loss_new = self.getLoss(X) + self.alpha
+            # 原决策树的损失
+            loss_old += self.alpha* T
             if loss_new < loss_old:
+                # 更新结点
                 leaf_label = self.getLeaf(X)
-                return (loss_new, T, leaf_label)
+                return (loss_new, 1, leaf_label)
             else:
                 return (loss_old, T, root)
             pass
-        # leaf node
+        # 叶结点
         else:
             c_loss = self.getLoss(X)
             return (c_loss, 1, root)
