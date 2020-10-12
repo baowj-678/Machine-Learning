@@ -1,8 +1,9 @@
-""" 决策树
-@Author: Bao Wenjie
-@Email: bwj_678@qq.com
-@Date: 2020/9/22
-"""
+# Copyright (c) 2020, HUST-AI-pi-team
+# All rights reserved.
+#
+# 决策树实现
+#
+
 import numpy as np
 import math
 import copy
@@ -172,18 +173,18 @@ class DecisionTree():
         dim = X.shape[1]
         # 计算信息增益
         if self.isRF:
-            indexs = np.random.choice(a=dim - 1, size=self.RF_k, replace=False)
-            X_ = X[:, indexs.append(dim - 1)]
+            index = np.random.choice(a=dim - 1, size=self.RF_k, replace=False)
+            X_ = X[:, np.append(index, dim - 1)]
             entropyGain_, splitPoints_ = self.gainLoss(X_)
             entropyGain = np.zeros(dim - 1)* -1
             splitPoints = np.zeros(dim - 1)
             entropyGain[index] = entropyGain_
-            splitPoints[index] = entropyGain_
+            splitPoints[index] = splitPoints_
             index = np.argmax(entropyGain)
         else:
             entropyGain, splitPoints = self.gainLoss(X)
             index = np.argmax(entropyGain)
-        # 收敛条件1
+        # 收敛条件1(信息增益小于额定值)
         if entropyGain[index] <= self.lb:
             leaf_label = self.getLeaf(X)
             return leaf_label
@@ -191,6 +192,10 @@ class DecisionTree():
             # 连续形
             X_left = X[X[:, index] <= splitPoints[index]]
             X_right = X[X[:, index] > splitPoints[index]]
+            # 收敛条件2(不存在更优的切分点)
+            if X_left.shape[0] == 0 or X_right.shape[0] == 0:
+                leaf_label = self.getLeaf(X)
+                return leaf_label
             # 生成子树
             # (属性维度, 小于等于/大于, 切分点值)
             subTree[(index, -1, splitPoints[index])] = self.generateTree(X_left)
@@ -473,7 +478,3 @@ class DecisionTree():
         :X numpy(batch_size, dim): 待预测数据
         """
         return self.predict(X)
-
-
-if __name__ == "__main__":
-    print(tuple('(2,3)'))
